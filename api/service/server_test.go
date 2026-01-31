@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/statistic/memory"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
+	"github.com/catcursor/trojan-go/statistic/memory"
 )
 
 func TestServerAPI(t *testing.T) {

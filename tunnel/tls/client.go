@@ -11,12 +11,12 @@ import (
 
 	utls "github.com/refraction-networking/utls"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/tunnel"
-	"github.com/p4gefau1t/trojan-go/tunnel/tls/fingerprint"
-	"github.com/p4gefau1t/trojan-go/tunnel/transport"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
+	"github.com/catcursor/trojan-go/log"
+	"github.com/catcursor/trojan-go/tunnel"
+	"github.com/catcursor/trojan-go/tunnel/tls/fingerprint"
+	"github.com/catcursor/trojan-go/tunnel/transport"
 )
 
 // Client is a tls client
@@ -25,6 +25,7 @@ type Client struct {
 	sni           string
 	ca            *x509.CertPool
 	cipher        []uint16
+	minVersion    uint16
 	sessionTicket bool
 	reuseSession  bool
 	fingerprint   string
@@ -56,6 +57,7 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 			RootCAs:            c.ca,
 			ServerName:         c.sni,
 			InsecureSkipVerify: !c.verify,
+			MinVersion:         c.minVersion,
 			KeyLogWriter:       c.keyLogger,
 		}, c.helloID)
 		if err := tlsConn.Handshake(); err != nil {
@@ -72,6 +74,7 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 		RootCAs:                c.ca,
 		KeyLogWriter:           c.keyLogger,
 		CipherSuites:           c.cipher,
+		MinVersion:             c.minVersion,
 		SessionTicketsDisabled: !c.sessionTicket,
 	})
 	err = tlsConn.Handshake()
@@ -86,6 +89,11 @@ func (c *Client) DialConn(_ *tunnel.Address, overlay tunnel.Tunnel) (tunnel.Conn
 // NewClient creates a tls client
 func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
+
+	minVersion, err := parseTLSVersion(cfg.TLS.MinVersion)
+	if err != nil {
+		return nil, err
+	}
 
 	helloID := utls.ClientHelloID{}
 	if cfg.TLS.Fingerprint != "" {
@@ -112,6 +120,7 @@ func NewClient(ctx context.Context, underlay tunnel.Client) (*Client, error) {
 		verify:        cfg.TLS.Verify,
 		sni:           cfg.TLS.SNI,
 		cipher:        fingerprint.ParseCipher(strings.Split(cfg.TLS.Cipher, ":")),
+		minVersion:    minVersion,
 		sessionTicket: cfg.TLS.ReuseSession,
 		fingerprint:   cfg.TLS.Fingerprint,
 		helloID:       helloID,

@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 
-	_ "github.com/p4gefau1t/trojan-go/component"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/option"
+	_ "github.com/catcursor/trojan-go/component"
+	"github.com/catcursor/trojan-go/log"
+	"github.com/catcursor/trojan-go/option"
 )
 
 func main() {

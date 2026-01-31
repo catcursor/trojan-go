@@ -9,10 +9,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/p4gefau1t/trojan-go/api/service"
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/option"
+	"github.com/catcursor/trojan-go/api/service"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/log"
+	"github.com/catcursor/trojan-go/option"
 )
 
 type apiController struct {

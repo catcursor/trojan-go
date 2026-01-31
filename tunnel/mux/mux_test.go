@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/test/util"
-	"github.com/p4gefau1t/trojan-go/tunnel/freedom"
-	"github.com/p4gefau1t/trojan-go/tunnel/transport"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
+	"github.com/catcursor/trojan-go/test/util"
+	"github.com/catcursor/trojan-go/tunnel/freedom"
+	"github.com/catcursor/trojan-go/tunnel/transport"
 )
 
 func TestMux(t *testing.T) {

@@ -1,7 +1,11 @@
 package tls
 
 import (
-	"github.com/p4gefau1t/trojan-go/config"
+	"crypto/tls"
+	"strings"
+
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
 )
 
 type Config struct {
@@ -18,6 +22,7 @@ type WebsocketConfig struct {
 type TLSConfig struct {
 	Verify               bool     `json:"verify" yaml:"verify"`
 	VerifyHostName       bool     `json:"verify_hostname" yaml:"verify-hostname"`
+	MinVersion           string   `json:"min_version" yaml:"min-version"`
 	CertPath             string   `json:"cert" yaml:"cert"`
 	KeyPath              string   `json:"key" yaml:"key"`
 	KeyPassword          string   `json:"key_password" yaml:"key-password"`
@@ -41,9 +46,21 @@ func init() {
 			TLS: TLSConfig{
 				Verify:         true,
 				VerifyHostName: true,
+				MinVersion:     "1.2",
 				Fingerprint:    "",
 				ALPN:           []string{"http/1.1"},
 			},
 		}
 	})
+}
+
+func parseTLSVersion(version string) (uint16, error) {
+	switch strings.TrimSpace(strings.ToLower(version)) {
+	case "", "1.2", "tls1.2":
+		return tls.VersionTLS12, nil
+	case "1.3", "tls1.3":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, common.NewError("invalid or insecure tls min version " + version)
+	}
 }
