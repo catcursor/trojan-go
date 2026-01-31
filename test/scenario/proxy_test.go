@@ -13,17 +13,17 @@ import (
 
 	netproxy "golang.org/x/net/proxy"
 
-	_ "github.com/p4gefau1t/trojan-go/api"
-	_ "github.com/p4gefau1t/trojan-go/api/service"
-	"github.com/p4gefau1t/trojan-go/common"
-	_ "github.com/p4gefau1t/trojan-go/log/golog"
-	"github.com/p4gefau1t/trojan-go/proxy"
-	_ "github.com/p4gefau1t/trojan-go/proxy/client"
-	_ "github.com/p4gefau1t/trojan-go/proxy/forward"
-	_ "github.com/p4gefau1t/trojan-go/proxy/nat"
-	_ "github.com/p4gefau1t/trojan-go/proxy/server"
-	_ "github.com/p4gefau1t/trojan-go/statistic/memory"
-	"github.com/p4gefau1t/trojan-go/test/util"
+	_ "github.com/catcursor/trojan-go/api"
+	_ "github.com/catcursor/trojan-go/api/service"
+	"github.com/catcursor/trojan-go/common"
+	_ "github.com/catcursor/trojan-go/log/golog"
+	"github.com/catcursor/trojan-go/proxy"
+	_ "github.com/catcursor/trojan-go/proxy/client"
+	_ "github.com/catcursor/trojan-go/proxy/forward"
+	_ "github.com/catcursor/trojan-go/proxy/nat"
+	_ "github.com/catcursor/trojan-go/proxy/server"
+	_ "github.com/catcursor/trojan-go/statistic/memory"
+	"github.com/catcursor/trojan-go/test/util"
 )
 
 // test key and cert

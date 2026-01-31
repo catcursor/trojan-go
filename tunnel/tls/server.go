@@ -17,14 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/log"
-	"github.com/p4gefau1t/trojan-go/redirector"
-	"github.com/p4gefau1t/trojan-go/tunnel"
-	"github.com/p4gefau1t/trojan-go/tunnel/tls/fingerprint"
-	"github.com/p4gefau1t/trojan-go/tunnel/transport"
-	"github.com/p4gefau1t/trojan-go/tunnel/websocket"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
+	"github.com/catcursor/trojan-go/log"
+	"github.com/catcursor/trojan-go/redirector"
+	"github.com/catcursor/trojan-go/tunnel"
+	"github.com/catcursor/trojan-go/tunnel/tls/fingerprint"
+	"github.com/catcursor/trojan-go/tunnel/transport"
+	"github.com/catcursor/trojan-go/tunnel/websocket"
 )
 
 // Server is a tls server
@@ -40,6 +40,7 @@ type Server struct {
 	cipherSuite        []uint16
 	sessionTicket      bool
 	curve              []tls.CurveID
+	minVersion         uint16
 	keyLogger          io.WriteCloser
 	connChan           chan tunnel.Conn
 	wsChan             chan tunnel.Conn
@@ -86,6 +87,7 @@ func (s *Server) acceptLoop() {
 				SessionTicketsDisabled:   !s.sessionTicket,
 				NextProtos:               s.alpn,
 				KeyLogWriter:             s.keyLogger,
+				MinVersion:               s.minVersion,
 				GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 					s.keyPairLock.RLock()
 					defer s.keyPairLock.RUnlock()
@@ -291,6 +293,11 @@ func loadKeyPair(keyPath string, certPath string, password string) (*tls.Certifi
 func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 	cfg := config.FromContext(ctx, Name).(*Config)
 
+	minVersion, err := parseTLSVersion(cfg.TLS.MinVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	var fallbackAddress *tunnel.Address
 	var httpResp []byte
 	if cfg.TLS.FallbackPort != 0 {
@@ -353,6 +360,7 @@ func NewServer(ctx context.Context, underlay tunnel.Server) (*Server, error) {
 		keyPair:            []tls.Certificate{*keyPair},
 		keyLogger:          keyLogger,
 		cipherSuite:        cipherSuite,
+		minVersion:         minVersion,
 		ctx:                ctx,
 		cancel:             cancel,
 	}

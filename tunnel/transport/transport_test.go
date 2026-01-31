@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/p4gefau1t/trojan-go/common"
-	"github.com/p4gefau1t/trojan-go/config"
-	"github.com/p4gefau1t/trojan-go/test/util"
-	"github.com/p4gefau1t/trojan-go/tunnel/freedom"
+	"github.com/catcursor/trojan-go/common"
+	"github.com/catcursor/trojan-go/config"
+	"github.com/catcursor/trojan-go/test/util"
+	"github.com/catcursor/trojan-go/tunnel/freedom"
 )
 
 func TestTransport(t *testing.T) {
