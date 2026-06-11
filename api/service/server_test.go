@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -16,6 +17,26 @@ import (
 	"github.com/catcursor/trojan-go/config"
 	"github.com/catcursor/trojan-go/statistic/memory"
 )
+
+type setUsersTestStream struct {
+	grpc.ServerStream
+	requests  []*SetUsersRequest
+	responses []*SetUsersResponse
+}
+
+func (s *setUsersTestStream) Recv() (*SetUsersRequest, error) {
+	if len(s.requests) == 0 {
+		return nil, io.EOF
+	}
+	req := s.requests[0]
+	s.requests = s.requests[1:]
+	return req, nil
+}
+
+func (s *setUsersTestStream) Send(resp *SetUsersResponse) error {
+	s.responses = append(s.responses, resp)
+	return nil
+}
 
 func TestServerAPI(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -155,6 +176,77 @@ func TestServerAPI(t *testing.T) {
 	}
 	stream2.CloseSend()
 	cancel()
+}
+
+func TestValidateAPIExposure(t *testing.T) {
+	if err := validateAPIExposure(&Config{API: APIConfig{
+		Enabled: true,
+		APIHost: "127.0.0.1",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := validateAPIExposure(&Config{API: APIConfig{
+		Enabled: true,
+		APIHost: "0.0.0.0",
+	}}); err == nil {
+		t.Fatal("expected non-loopback plaintext API to fail")
+	}
+
+	if err := validateAPIExposure(&Config{API: APIConfig{
+		Enabled: true,
+		APIHost: "0.0.0.0",
+		SSL: SSLConfig{
+			Enabled:      true,
+			VerifyClient: true,
+		},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSetUsersRejectsMissingUser(t *testing.T) {
+	ctx := config.WithConfig(context.Background(), memory.Name, &memory.Config{})
+	auth, err := memory.NewAuthenticator(ctx)
+	common.Must(err)
+	api := &ServerAPI{auth: auth}
+	err = api.SetUsers(&setUsersTestStream{
+		requests: []*SetUsersRequest{{
+			Status:    &UserStatus{},
+			Operation: SetUsersRequest_Add,
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected missing user to fail")
+	}
+}
+
+func TestSetUsersRejectsOversizedSpeedLimit(t *testing.T) {
+	ctx := config.WithConfig(context.Background(), memory.Name, &memory.Config{})
+	auth, err := memory.NewAuthenticator(ctx)
+	common.Must(err)
+	api := &ServerAPI{auth: auth}
+	stream := &setUsersTestStream{
+		requests: []*SetUsersRequest{{
+			Status: &UserStatus{
+				User: &User{Hash: "hash"},
+				SpeedLimit: &Speed{
+					DownloadSpeed: uint64(maxInt) + 1,
+				},
+			},
+			Operation: SetUsersRequest_Add,
+		}},
+	}
+	err = api.SetUsers(stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stream.responses) != 1 || stream.responses[0].Success {
+		t.Fatalf("expected failure response, got %#v", stream.responses)
+	}
+	if valid, _ := auth.AuthUser("hash"); valid {
+		t.Fatal("invalid add request should not create user")
+	}
 }
 
 func TestTLSRSA(t *testing.T) {

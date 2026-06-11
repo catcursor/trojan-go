@@ -191,18 +191,40 @@ func (a *Address) ReadFrom(r io.Reader) error {
 }
 
 func (a *Address) WriteTo(w io.Writer) error {
+	if a == nil {
+		return common.NewError("address is nil")
+	}
+	if a.Port < 0 || a.Port > 65535 {
+		return common.NewError("invalid port " + strconv.FormatInt(int64(a.Port), 10))
+	}
 	_, err := w.Write([]byte{byte(a.AddressType)})
 	if err != nil {
 		return err
 	}
 	switch a.AddressType {
 	case DomainName:
-		w.Write([]byte{byte(len(a.DomainName))})
+		if len(a.DomainName) == 0 {
+			return common.NewError("empty domain name")
+		}
+		if len(a.DomainName) > 255 {
+			return common.NewError("domain name is too long")
+		}
+		if _, err = w.Write([]byte{byte(len(a.DomainName))}); err != nil {
+			return err
+		}
 		_, err = w.Write([]byte(a.DomainName))
 	case IPv4:
-		_, err = w.Write(a.IP.To4())
+		ip := a.IP.To4()
+		if ip == nil {
+			return common.NewError("invalid IPv4 address")
+		}
+		_, err = w.Write(ip)
 	case IPv6:
-		_, err = w.Write(a.IP.To16())
+		ip := a.IP.To16()
+		if ip == nil {
+			return common.NewError("invalid IPv6 address")
+		}
+		_, err = w.Write(ip)
 	default:
 		return common.NewError("invalid ATYP " + strconv.FormatInt(int64(a.AddressType), 10))
 	}

@@ -33,6 +33,20 @@ type apiController struct {
 	ctx                context.Context
 }
 
+func nonNegativeUint64(value int) uint64 {
+	if value <= 0 {
+		return 0
+	}
+	return uint64(value)
+}
+
+func int32FromInt(value int, field string) (int32, error) {
+	if value > 1<<31-1 || value < -1<<31 {
+		return 0, common.NewError(field + " is out of int32 range")
+	}
+	return int32(value), nil
+}
+
 func (apiController) Name() string {
 	return "api"
 }
@@ -92,16 +106,20 @@ func (o *apiController) setUsers(apiClient service.TrojanServerServiceClient) er
 	}
 	defer stream.CloseSend()
 
+	ipLimit, err := int32FromInt(*o.ipLimit, "ip limit")
+	if err != nil {
+		return err
+	}
 	req := &service.SetUsersRequest{
 		Status: &service.UserStatus{
 			User: &service.User{
 				Password: *o.password,
 				Hash:     *o.hash,
 			},
-			IpLimit: int32(*o.ipLimit),
+			IpLimit: ipLimit,
 			SpeedLimit: &service.Speed{
-				UploadSpeed:   uint64(*o.uploadSpeedLimit),
-				DownloadSpeed: uint64(*o.downloadSpeedLimit),
+				UploadSpeed:   nonNegativeUint64(*o.uploadSpeedLimit),
+				DownloadSpeed: nonNegativeUint64(*o.downloadSpeedLimit),
 			},
 		},
 	}

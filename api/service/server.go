@@ -19,9 +19,50 @@ import (
 	"github.com/catcursor/trojan-go/tunnel/trojan"
 )
 
+var maxInt = int(^uint(0) >> 1)
+
 type ServerAPI struct {
 	TrojanServerServiceServer
 	auth statistic.Authenticator
+}
+
+func uint64ToInt(value uint64, field string) (int, error) {
+	if value > uint64(maxInt) {
+		return 0, common.NewError(field + " is too large")
+	}
+	return int(value), nil
+}
+
+func speedLimitFromAPI(speed *Speed) (download, upload int, err error) {
+	if speed == nil {
+		return 0, 0, nil
+	}
+	download, err = uint64ToInt(speed.DownloadSpeed, "download speed")
+	if err != nil {
+		return 0, 0, err
+	}
+	upload, err = uint64ToInt(speed.UploadSpeed, "upload speed")
+	if err != nil {
+		return 0, 0, err
+	}
+	return download, upload, nil
+}
+
+func validateAPIExposure(cfg *Config) error {
+	if !cfg.API.Enabled {
+		return nil
+	}
+	addr, err := net.ResolveIPAddr("ip", cfg.API.APIHost)
+	if err != nil {
+		return common.NewError("api found invalid addr").Base(err)
+	}
+	if addr.IP.IsLoopback() {
+		return nil
+	}
+	if cfg.API.SSL.Enabled && cfg.API.SSL.VerifyClient {
+		return nil
+	}
+	return common.NewError("api must enable ssl.verify_client when listening on a non-loopback address")
 }
 
 func (s *ServerAPI) GetUsers(stream TrojanServerService_GetUsersServer) error {
@@ -92,29 +133,35 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 		if req.Status == nil {
 			return common.NewError("status is unspecified")
 		}
+		if req.Status.User == nil {
+			return common.NewError("user is unspecified")
+		}
 		if req.Status.User.Hash == "" {
 			req.Status.User.Hash = common.SHA224String(req.Status.User.Password)
 		}
 		switch req.Operation {
 		case SetUsersRequest_Add:
+			downloadLimit, uploadLimit, limitErr := speedLimitFromAPI(req.Status.SpeedLimit)
+			if limitErr != nil {
+				err = limitErr
+				break
+			}
 			if err = s.auth.AddUser(req.Status.User.Hash); err != nil {
 				err = common.NewError("failed to add new user").Base(err)
 				break
 			}
-			if req.Status.SpeedLimit != nil {
-				valid, user := s.auth.AuthUser(req.Status.User.Hash)
-				if !valid {
-					err = common.NewError("failed to auth new user").Base(err)
-					continue
-				}
-				if req.Status.SpeedLimit != nil {
-					user.SetSpeedLimit(int(req.Status.SpeedLimit.DownloadSpeed), int(req.Status.SpeedLimit.UploadSpeed))
-				}
-				if req.Status.TrafficTotal != nil {
-					user.SetTraffic(req.Status.TrafficTotal.DownloadTraffic, req.Status.TrafficTotal.UploadTraffic)
-				}
-				user.SetIPLimit(int(req.Status.IpLimit))
+			valid, user := s.auth.AuthUser(req.Status.User.Hash)
+			if !valid {
+				err = common.NewError("failed to auth new user")
+				break
 			}
+			if req.Status.SpeedLimit != nil {
+				user.SetSpeedLimit(downloadLimit, uploadLimit)
+			}
+			if req.Status.TrafficTotal != nil {
+				user.SetTraffic(req.Status.TrafficTotal.DownloadTraffic, req.Status.TrafficTotal.UploadTraffic)
+			}
+			user.SetIPLimit(int(req.Status.IpLimit))
 		case SetUsersRequest_Delete:
 			err = s.auth.DelUser(req.Status.User.Hash)
 		case SetUsersRequest_Modify:
@@ -123,7 +170,12 @@ func (s *ServerAPI) SetUsers(stream TrojanServerService_SetUsersServer) error {
 				err = common.NewError("invalid user " + req.Status.User.Hash)
 			} else {
 				if req.Status.SpeedLimit != nil {
-					user.SetSpeedLimit(int(req.Status.SpeedLimit.DownloadSpeed), int(req.Status.SpeedLimit.UploadSpeed))
+					downloadLimit, uploadLimit, limitErr := speedLimitFromAPI(req.Status.SpeedLimit)
+					if limitErr != nil {
+						err = limitErr
+						break
+					}
+					user.SetSpeedLimit(downloadLimit, uploadLimit)
 				}
 				if req.Status.TrafficTotal != nil {
 					user.SetTraffic(req.Status.TrafficTotal.DownloadTraffic, req.Status.TrafficTotal.UploadTraffic)
@@ -219,6 +271,9 @@ func RunServerAPI(ctx context.Context, auth statistic.Authenticator) error {
 	cfg := config.FromContext(ctx, Name).(*Config)
 	if !cfg.API.Enabled {
 		return nil
+	}
+	if err := validateAPIExposure(cfg); err != nil {
+		return err
 	}
 	service := &ServerAPI{
 		auth: auth,

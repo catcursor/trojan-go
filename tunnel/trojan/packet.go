@@ -32,9 +32,17 @@ func (c *PacketConn) WriteTo(payload []byte, addr net.Addr) (int, error) {
 }
 
 func (c *PacketConn) WriteWithMetadata(payload []byte, metadata *tunnel.Metadata) (int, error) {
+	if metadata == nil || metadata.Address == nil {
+		return 0, common.NewError("metadata address is unspecified")
+	}
+	if len(payload) > MaxPacketSize {
+		return 0, common.NewError("outgoing packet size is too large")
+	}
 	packet := make([]byte, 0, MaxPacketSize)
 	w := bytes.NewBuffer(packet)
-	metadata.Address.WriteTo(w)
+	if err := metadata.Address.WriteTo(w); err != nil {
+		return 0, common.NewError("failed to write udp packet addr").Base(err)
+	}
 
 	length := len(payload)
 	lengthBuf := [2]byte{}

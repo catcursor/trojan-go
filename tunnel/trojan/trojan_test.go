@@ -109,3 +109,23 @@ func TestTrojan(t *testing.T) {
 	s.Close()
 	cancel()
 }
+
+func TestPacketWriteWithMetadataRejectsOversizedPayload(t *testing.T) {
+	packet := &PacketConn{}
+	_, err := packet.WriteWithMetadata(make([]byte, MaxPacketSize+1), &tunnel.Metadata{
+		Address: tunnel.NewAddressFromHostPort("udp", "example.com", 53),
+	})
+	if err == nil {
+		t.Fatal("expected oversized packet to fail")
+	}
+}
+
+func TestPacketWriteWithMetadataRejectsInvalidAddress(t *testing.T) {
+	packet := &PacketConn{}
+	_, err := packet.WriteWithMetadata([]byte("payload"), &tunnel.Metadata{
+		Address: tunnel.NewAddressFromHostPort("udp", "example.com", 70000),
+	})
+	if err == nil {
+		t.Fatal("expected invalid packet address to fail")
+	}
+}
