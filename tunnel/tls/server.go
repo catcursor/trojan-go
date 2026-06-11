@@ -257,17 +257,25 @@ func loadKeyPair(keyPath string, certPath string, password string) (*tls.Certifi
 			return nil, common.NewError("failed to decode key file").Base(err)
 		}
 		decryptedKey, err := x509.DecryptPEMBlock(keyBlock, []byte(password))
-		if err == nil {
+		if err != nil {
 			return nil, common.NewError("failed to decrypt key").Base(err)
 		}
 
 		certFile, err := ioutil.ReadFile(certPath)
+		if err != nil {
+			return nil, common.NewError("failed to load cert file").Base(err)
+		}
 		certBlock, _ := pem.Decode(certFile)
 		if certBlock == nil {
 			return nil, common.NewError("failed to decode cert file").Base(err)
 		}
 
-		keyPair, err := tls.X509KeyPair(certBlock.Bytes, decryptedKey)
+		keyPEM := pem.EncodeToMemory(&pem.Block{
+			Type:  keyBlock.Type,
+			Bytes: decryptedKey,
+		})
+		certPEM := pem.EncodeToMemory(certBlock)
+		keyPair, err := tls.X509KeyPair(certPEM, keyPEM)
 		if err != nil {
 			return nil, err
 		}

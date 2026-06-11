@@ -17,6 +17,8 @@ import (
 )
 
 func TestShadowsocks(t *testing.T) {
+	t.Setenv("SHADOWSOCKS_SF_CAPACITY", "-1")
+
 	p, err := strconv.ParseInt(util.HTTPPort, 10, 32)
 	common.Must(err)
 

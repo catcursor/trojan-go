@@ -3,11 +3,13 @@ package scenario
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -81,6 +83,7 @@ lVkr92iEX+IhIeYb4DN1vQw=
 `
 
 func init() {
+	os.Setenv("SHADOWSOCKS_SF_CAPACITY", "-1")
 	os.WriteFile("server.crt", []byte(cert), 0o777)
 	os.WriteFile("server.key", []byte(key), 0o777)
 }
@@ -99,31 +102,42 @@ func CheckClientServer(clientData, serverData string, socksPort int) (ok bool) {
 	common.Must(err)
 
 	ok = true
+	var failed atomic.Bool
 	const num = 100
 	wg := sync.WaitGroup{}
 	wg.Add(num)
 	for i := 0; i < num; i++ {
 		go func() {
+			defer wg.Done()
 			const payloadSize = 1024
 			payload := util.GeneratePayload(payloadSize)
 			buf := [payloadSize]byte{}
 
 			conn, err := dialer.Dial("tcp", util.EchoAddr)
-			common.Must(err)
+			if err != nil {
+				failed.Store(true)
+				return
+			}
+			defer conn.Close()
 
-			common.Must2(conn.Write(payload))
-			common.Must2(conn.Read(buf[:]))
+			if _, err := conn.Write(payload); err != nil {
+				failed.Store(true)
+				return
+			}
+			if _, err := io.ReadFull(conn, buf[:]); err != nil {
+				failed.Store(true)
+				return
+			}
 
 			if !bytes.Equal(payload, buf[:]) {
-				ok = false
+				failed.Store(true)
 			}
-			conn.Close()
-			wg.Done()
 		}()
 	}
 	wg.Wait()
 	client.Close()
 	server.Close()
+	ok = !failed.Load()
 	return
 }
 

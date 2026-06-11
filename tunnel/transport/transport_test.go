@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -11,6 +12,13 @@ import (
 	"github.com/catcursor/trojan-go/test/util"
 	"github.com/catcursor/trojan-go/tunnel/freedom"
 )
+
+func noopCommand() (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", "exit", "0"}
+	}
+	return "true", nil
+}
 
 func TestTransport(t *testing.T) {
 	serverCfg := &Config{
@@ -58,6 +66,7 @@ func TestTransport(t *testing.T) {
 }
 
 func TestClientPlugin(t *testing.T) {
+	command, args := noopCommand()
 	clientCfg := &Config{
 		LocalHost:  "127.0.0.1",
 		LocalPort:  common.PickPort("tcp", "127.0.0.1"),
@@ -66,9 +75,9 @@ func TestClientPlugin(t *testing.T) {
 		TransportPlugin: TransportPluginConfig{
 			Enabled: true,
 			Type:    "shadowsocks",
-			Command: "echo $SS_REMOTE_PORT",
+			Command: command,
 			Option:  "",
-			Arg:     nil,
+			Arg:     args,
 			Env:     nil,
 		},
 	}
@@ -81,6 +90,7 @@ func TestClientPlugin(t *testing.T) {
 }
 
 func TestServerPlugin(t *testing.T) {
+	command, args := noopCommand()
 	cfg := &Config{
 		LocalHost:  "127.0.0.1",
 		LocalPort:  common.PickPort("tcp", "127.0.0.1"),
@@ -89,9 +99,9 @@ func TestServerPlugin(t *testing.T) {
 		TransportPlugin: TransportPluginConfig{
 			Enabled: true,
 			Type:    "shadowsocks",
-			Command: "echo $SS_REMOTE_PORT",
+			Command: command,
 			Option:  "",
-			Arg:     nil,
+			Arg:     args,
 			Env:     nil,
 		},
 	}

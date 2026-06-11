@@ -8,10 +8,16 @@ import (
 
 type Conn struct {
 	aeadConn net.Conn
+	readBuf  []byte
 	tunnel.Conn
 }
 
 func (c *Conn) Read(p []byte) (n int, err error) {
+	if len(c.readBuf) > 0 {
+		n = copy(p, c.readBuf)
+		c.readBuf = c.readBuf[n:]
+		return n, nil
+	}
 	return c.aeadConn.Read(p)
 }
 
